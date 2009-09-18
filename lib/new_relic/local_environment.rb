@@ -128,6 +128,7 @@ module NewRelic
     end
     
     def mongrel
+      return nil if defined? PreFork::Server
       return @mongrel if @mongrel || ! defined? Mongrel::HttpServer 
       ObjectSpace.each_object(Mongrel::HttpServer) do |mongrel|
         @mongrel = mongrel
@@ -149,7 +150,7 @@ module NewRelic
     # is not advisable since it implies certain api's being available.
     def discover_dispatcher
       @dispatcher = ENV['NEWRELIC_DISPATCHER'] && ENV['NEWRELIC_DISPATCHER'].to_sym
-      dispatchers = %w[passenger glassfish thin mongrel litespeed webrick fastcgi unicorn]
+      dispatchers = %w[prefork passenger glassfish thin mongrel litespeed webrick fastcgi unicorn]
       while dispatchers.any? && @dispatcher.nil?
         send 'check_for_'+(dispatchers.shift)
       end
@@ -194,7 +195,7 @@ module NewRelic
 
     # this case covers starting by mongrel_rails
     def check_for_mongrel
-      return unless defined?(Mongrel::HttpServer) 
+      return unless defined?(Mongrel::HttpServer)
       @dispatcher = :mongrel
       
       # Get the port from the server if it's started
@@ -258,7 +259,16 @@ module NewRelic
         @dispatcher = :passenger
       end
     end
-  
+
+    def check_for_prefork
+      if defined?(PreFork::Server)
+        @dispatcher = :prefork
+        ObjectSpace.each_object(PreFork::Server) do |prefork|
+          @dispatcher_instance_id = prefork.config[:port] && prefork.config[:port].to_s
+        end
+      end
+    end
+
     def default_port
       require 'optparse'
       # If nothing else is found, use the 3000 default

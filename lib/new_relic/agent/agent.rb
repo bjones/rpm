@@ -255,7 +255,12 @@ module NewRelic::Agent
         log.debug "Process is passenger spawner - don't connect to RPM service"
         return
       end
-      
+     
+      if (control.dispatcher == :prefork && $0 =~ /prefork_rails.service/)
+        log.debug "Process is prefork spawner - don't connect to RPM service"
+        return
+      end
+ 
       @task_loop = WorkerLoop.new(log)
       
       if control['check_bg_loading']
